@@ -1,0 +1,6 @@
+data/
+config.json
+basic_pitch_epoch_1.pth
+earlystop_train.py
+ml_env/
+__pycache__/
