@@ -10,10 +10,6 @@ This repository contains source code for my attempt at recreating [Spotify’s B
 - **Difference from Spotify’s Basic Pitch**:
   - Uses **PyTorch** instead of TensorFlow.
   - Is trained solely on the **MAESTRO dataset** (instead of multiple or augmented datasets).
-- **Current Status**:
-  - Core data loading and model architecture are implemented.
-  - Working to improve alignment and reduce onset–note mismatch issues.
-
 ---
 
 ## Features
