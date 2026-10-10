@@ -1,0 +1,338 @@
+{
+  "training": {
+    "seed": 42,
+    "training_recordings": 200,
+    "training_windows": 6400,
+    "epochs_completed": 28,
+    "selected_epoch": 20,
+    "best_validation_loss": 0.11433012913912535,
+    "checkpoint": "runs/expanded/best.pt",
+    "selection": "Validation loss; minimum improvement 0.0001, patience 8. Checkpoint selection does not use test data."
+  },
+  "test": {
+    "split": "test",
+    "windows": 160,
+    "thresholds": {
+      "threshold_onset": 0.995,
+      "threshold_note": 0.3,
+      "min_duration_ms": 40,
+      "tolerance_frames": 11
+    },
+    "note_events_no_offset": {
+      "precision": 0.5956738768718802,
+      "recall": 0.8145620022753128,
+      "f1": 0.6881307063911581,
+      "matched": 2864,
+      "predicted": 4808,
+      "reference": 3516
+    },
+    "note_events_with_offset": {
+      "precision": 0.2732945091514143,
+      "recall": 0.37372013651877134,
+      "f1": 0.31571359923113884,
+      "matched": 1314,
+      "predicted": 4808,
+      "reference": 3516
+    },
+    "frame": {
+      "onset": {
+        "precision": 0.10042203224759225,
+        "recall": 0.8738229755178908,
+        "f1": 0.18014170629913615,
+        "matched": 2784,
+        "predicted": 27723,
+        "reference": 3186
+      },
+      "pitch": {
+        "precision": 0.5665533650577839,
+        "recall": 0.625853178245415,
+        "f1": 0.5947287460949269,
+        "matched": 37503,
+        "predicted": 66195,
+        "reference": 59923
+      },
+      "note": {
+        "precision": 0.5664084614003838,
+        "recall": 0.6845618543797874,
+        "f1": 0.6199053994831729,
+        "matched": 41021,
+        "predicted": 72423,
+        "reference": 59923
+      }
+    },
+    "scope": "Fixed held-out two-second windows; boundary notes are clipped."
+  },
+  "decoder": {
+    "thresholds": {
+      "threshold_onset": 0.995,
+      "threshold_note": 0.3,
+      "min_duration_ms": 40,
+      "tolerance_frames": 11
+    },
+    "validation_note_f1": 0.6441756842775302,
+    "validation_windows": 160,
+    "checkpoint": "runs/expanded/best.pt"
+  },
+  "comparison": {
+    "baseline": "demo_results.json",
+    "identical_validation_test_windows": true,
+    "note_f1_change_percentage_points": 6.727444548658157,
+    "note_with_endings_f1_change_percentage_points": 3.97774832735493
+  },
+  "viewer": {
+    "scope": "Four illustrative eight-second excerpts from distinct held-out test recordings, evaluated separately from the aggregate two-second test windows.",
+    "selection": "Reference MIDI only; no prediction scores used to choose textures. The previously inspected test excerpt is retained to illustrate note-ending errors.",
+    "clips": [
+      {
+        "id": "sparse",
+        "label": "Sparse passage",
+        "composer": "Johann Sebastian Bach",
+        "title": "Prelude and Fugue in  F-sharp Major, WTC I , BWV 858",
+        "start": 77.45015873015873,
+        "duration": 8.0,
+        "metrics": {
+          "precision": 0.6363636363636364,
+          "recall": 0.9333333333333333,
+          "f1": 0.7567567567567568,
+          "matched": 14,
+          "predicted": 22,
+          "reference": 15
+        },
+        "diagnostics": {
+          "with_offset": {
+            "precision": 0.5,
+            "recall": 0.7333333333333333,
+            "f1": 0.5945945945945945,
+            "matched": 11,
+            "predicted": 22,
+            "reference": 15
+          },
+          "onset_matches": 14,
+          "ending_matches_among_onset_matches": 11,
+          "extra_notes": 8,
+          "missed_notes": 1,
+          "duration_examples": [
+            {
+              "pitch": 49,
+              "note": "C#3",
+              "reference_start": 0.5092162698412608,
+              "predicted_start": 0.5108390022675737,
+              "reference_end": 1.3060912698412608,
+              "predicted_end": 0.7314285714285714,
+              "end_error_seconds": -0.5746626984126894
+            },
+            {
+              "pitch": 78,
+              "note": "F#5",
+              "reference_start": 1.2248412698412636,
+              "predicted_start": 1.2306575963718822,
+              "reference_end": 1.6154662698412636,
+              "predicted_end": 1.2887074829931973,
+              "end_error_seconds": -0.32675878684806636
+            },
+            {
+              "pitch": 77,
+              "note": "F5",
+              "reference_start": 0.9571329365079322,
+              "predicted_start": 0.9636281179138322,
+              "reference_end": 1.0185912698412665,
+              "predicted_end": 1.1493877551020408,
+              "end_error_seconds": 0.13079648526077436
+            }
+          ]
+        }
+      },
+      {
+        "id": "chords",
+        "label": "Chords",
+        "composer": "Franz Schubert",
+        "title": "Valse-Caprice No. 6 from Soirees de Vienne",
+        "start": 13.757823129251701,
+        "duration": 8.0,
+        "metrics": {
+          "precision": 0.6964285714285714,
+          "recall": 0.8041237113402062,
+          "f1": 0.7464114832535885,
+          "matched": 78,
+          "predicted": 112,
+          "reference": 97
+        },
+        "diagnostics": {
+          "with_offset": {
+            "precision": 0.25892857142857145,
+            "recall": 0.29896907216494845,
+            "f1": 0.27751196172248804,
+            "matched": 29,
+            "predicted": 112,
+            "reference": 97
+          },
+          "onset_matches": 78,
+          "ending_matches_among_onset_matches": 29,
+          "extra_notes": 34,
+          "missed_notes": 19,
+          "duration_examples": [
+            {
+              "pitch": 60,
+              "note": "C4",
+              "reference_start": 0,
+              "predicted_start": 0.011609977324263039,
+              "reference_end": 0.015614370748298967,
+              "predicted_end": 0.7314285714285714,
+              "end_error_seconds": 0.7158142006802725
+            },
+            {
+              "pitch": 64,
+              "note": "E4",
+              "reference_start": 0,
+              "predicted_start": 0.023219954648526078,
+              "reference_end": 0.03774978741496504,
+              "predicted_end": 0.5804988662131519,
+              "end_error_seconds": 0.5427490787981869
+            },
+            {
+              "pitch": 57,
+              "note": "A3",
+              "reference_start": 4.446603954081631,
+              "predicted_start": 4.423401360544218,
+              "reference_end": 4.552072704081631,
+              "predicted_end": 5.050340136054422,
+              "end_error_seconds": 0.4982674319727911
+            }
+          ]
+        }
+      },
+      {
+        "id": "fast",
+        "label": "Fast playing",
+        "composer": "Sergei Rachmaninoff",
+        "title": "Etude Tableau Op. 39 No. 5",
+        "start": 63.41369614512472,
+        "duration": 8.0,
+        "metrics": {
+          "precision": 0.7112299465240641,
+          "recall": 0.6018099547511312,
+          "f1": 0.6519607843137255,
+          "matched": 133,
+          "predicted": 187,
+          "reference": 221
+        },
+        "diagnostics": {
+          "with_offset": {
+            "precision": 0.29411764705882354,
+            "recall": 0.248868778280543,
+            "f1": 0.2696078431372549,
+            "matched": 55,
+            "predicted": 187,
+            "reference": 221
+          },
+          "onset_matches": 133,
+          "ending_matches_among_onset_matches": 55,
+          "extra_notes": 54,
+          "missed_notes": 88,
+          "duration_examples": [
+            {
+              "pitch": 70,
+              "note": "A#4",
+              "reference_start": 0,
+              "predicted_start": 0.011609977324263039,
+              "reference_end": 1.4560955215419398,
+              "predicted_end": 0.3250793650793651,
+              "end_error_seconds": -1.1310161564625747
+            },
+            {
+              "pitch": 65,
+              "note": "F4",
+              "reference_start": 3.122762188208611,
+              "predicted_start": 3.1230839002267574,
+              "reference_end": 4.009480938208611,
+              "predicted_end": 3.2275736961451247,
+              "end_error_seconds": -0.7819072420634865
+            },
+            {
+              "pitch": 77,
+              "note": "F5",
+              "reference_start": 3.122762188208611,
+              "predicted_start": 3.1230839002267574,
+              "reference_end": 3.927449688208611,
+              "predicted_end": 3.239183673469388,
+              "end_error_seconds": -0.6882660147392232
+            }
+          ]
+        }
+      },
+      {
+        "id": "endings",
+        "label": "Note-ending errors",
+        "composer": "Sergei Rachmaninoff",
+        "title": "Etude-Tableaux, Opus 39 No. 8 in D Minor",
+        "start": 5.897868480725624,
+        "duration": 8.0,
+        "metrics": {
+          "precision": 0.5185185185185185,
+          "recall": 0.8235294117647058,
+          "f1": 0.6363636363636364,
+          "matched": 84,
+          "predicted": 162,
+          "reference": 102
+        },
+        "diagnostics": {
+          "with_offset": {
+            "precision": 0.19135802469135801,
+            "recall": 0.30392156862745096,
+            "f1": 0.23484848484848483,
+            "matched": 31,
+            "predicted": 162,
+            "reference": 102
+          },
+          "onset_matches": 84,
+          "ending_matches_among_onset_matches": 31,
+          "extra_notes": 78,
+          "missed_notes": 18,
+          "duration_examples": [
+            {
+              "pitch": 72,
+              "note": "C5",
+              "reference_start": 2.476089852607709,
+              "predicted_start": 2.507755102040816,
+              "reference_end": 3.293798185941043,
+              "predicted_end": 2.670294784580499,
+              "end_error_seconds": -0.6235034013605438
+            },
+            {
+              "pitch": 38,
+              "note": "D2",
+              "reference_start": 2.4667148526077103,
+              "predicted_start": 2.507755102040816,
+              "reference_end": 2.636506519274377,
+              "predicted_end": 3.1811337868480725,
+              "end_error_seconds": 0.5446272675736954
+            },
+            {
+              "pitch": 72,
+              "note": "C5",
+              "reference_start": 4.808381519274377,
+              "predicted_start": 4.841360544217687,
+              "reference_end": 5.674006519274377,
+              "predicted_end": 5.154829931972789,
+              "end_error_seconds": -0.5191765873015877
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "verification": {
+    "regression_tests_passed": 18,
+    "viewer_clips": 4,
+    "browser_audio_playback_verified": true,
+    "browser_midi_download_verified": true,
+    "desktop_viewport": [
+      1280,
+      720
+    ],
+    "mobile_viewport": [
+      390,
+      844
+    ]
+  }
+}

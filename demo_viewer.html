@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TorchPitch · Model results</title>
+<style>
+:root{color-scheme:light;--ink:#20332f;--muted:#5a6b65;--green:#176b53;--line:#dce5df;--paper:#fff;--amber:#85541b}
+*{box-sizing:border-box}body{margin:0;background:#f3f5f1;color:var(--ink);font:15px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:1240px;margin:auto;padding:38px 32px 52px}a{color:var(--green);text-underline-offset:3px}button,select{font:inherit}button{cursor:pointer}
+.eyebrow{text-transform:uppercase;font-size:11px;letter-spacing:.16em;font-weight:750;color:var(--green)}.topline{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:20px}.status{font-size:12px;color:var(--muted);border:1px solid var(--line);padding:5px 12px;border-radius:30px;background:#fff}
+h1{font-size:clamp(28px,4vw,40px);line-height:1.15;letter-spacing:-.035em;margin:8px 0 10px}h2{font-size:23px;line-height:1.3;letter-spacing:-.02em;margin:0}h3{font-size:16px;margin:0 0 8px}p{margin:8px 0}.muted{color:var(--muted)}.intro{max-width:760px;font-size:16px}.run-info{font-size:12px;color:var(--muted);margin:16px 0 24px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:24px}.stat{background:var(--paper);border:1px solid var(--line);padding:20px 22px;border-radius:12px}.stat .label{font-size:12px;color:var(--muted);font-weight:600}.stat .value{font-size:34px;line-height:1.2;letter-spacing:-.04em;margin:8px 0}.stat .delta{color:var(--green);font-size:12px}.stat:last-child .delta{color:var(--amber)}
+.summary{margin:16px 0 32px;padding:0 3px;color:var(--muted);font-size:13px}.summary strong{color:var(--ink)}.comparison{background:white;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-top:16px}details summary{cursor:pointer;font-weight:600}table{width:100%;border-collapse:collapse;margin-top:14px;font-variant-numeric:tabular-nums}th,td{text-align:right;padding:10px 12px;border-bottom:1px solid #edf1ee}th:first-child,td:first-child{text-align:left;padding-left:0}th{font-size:12px;color:var(--muted)}td{font-size:13px}tbody tr:last-child td{border-bottom:0}.comparison p{font-size:12px;color:var(--muted)}
+.section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:18px}.section-heading p{font-size:13px;margin:5px 0 0}.gallery{display:grid;grid-template-columns:238px minmax(0,1fr);gap:18px;align-items:start}.clip-list{display:grid;gap:8px}.clip-button{text-align:left;width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;padding:15px 16px;color:var(--ink);display:flex;gap:12px;align-items:flex-start;transition:background .12s,border-color .12s}.clip-button[aria-pressed="true"]{border-color:var(--green);background:#eaf3ed;box-shadow:inset 3px 0 var(--green)}.clip-button:hover{border-color:#7b9c89}.clip-button .number{font-variant-numeric:tabular-nums;font-size:11px;color:var(--muted);padding-top:3px}.clip-button strong{display:block;font-size:14px}.clip-button small{display:block;font-size:11px;margin-top:3px;color:var(--muted)}.clip-button .error-tag{color:var(--amber)}button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #6ea18f;outline-offset:3px}
+.clip-panel{background:white;border:1px solid var(--line);border-radius:14px;overflow:hidden;min-width:0}.clip-header{padding:24px 26px 18px}.clip-header .eyebrow{margin-bottom:7px}.clip-title{font-size:23px}.composer{color:var(--muted);font-size:13px;margin:6px 0 12px}.description{font-size:14px}.clip-meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:11px;color:var(--muted);margin-top:12px}.clip-scores{display:grid;grid-template-columns:repeat(3,1fr);border-block:1px solid var(--line);background:#fafcf9}.clip-scores div{padding:12px 24px}.clip-scores span{display:block;font-size:11px;color:var(--muted)}.clip-scores strong{font-size:20px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:18px 26px}.players label{display:block;font-size:12px;font-weight:600;margin-bottom:7px}audio{width:100%;height:38px}.roll{padding:0 12px}.roll img{display:block;width:100%;height:auto}.downloads{display:flex;gap:12px 22px;flex-wrap:wrap;padding:14px 26px 22px;font-size:12px}.downloads .primary{font-weight:650}.diagnosis{margin:0 26px 24px;border:1px solid #eadfc9;background:#fcf8ef;border-radius:9px;padding:17px 19px}.diagnosis h3{color:#714d20;font-size:14px}.diagnosis p{font-size:12px;color:#655b49}.duration-list{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:12px}.duration-list li{border-top:1px solid #e8dfce;padding-top:10px;font-size:12px}.error-label{display:flex;justify-content:space-between;gap:12px;font-variant-numeric:tabular-nums}.duration-track{position:relative;height:30px;margin-top:5px;background:linear-gradient(90deg,transparent 24.7%,#e9e1d0 25%,transparent 25.3%,transparent 49.7%,#e9e1d0 50%,transparent 50.3%,transparent 74.7%,#e9e1d0 75%,transparent 75.3%)}.duration-bar{position:absolute;height:7px;border-radius:2px;min-width:2px;background:#64768a;top:5px}.duration-bar.predicted{top:18px;background:#b1762f}.legend{display:flex;gap:18px;font-size:10px;color:#655b49;margin:10px 0 0}.legend span:before{content:"";display:inline-block;background:#64768a;width:14px;height:5px;margin-right:6px;vertical-align:middle}.legend span:last-child:before{background:#b1762f}.selection-note{font-size:12px;line-height:1.6;color:var(--muted);margin-top:12px}.footnote{font-size:12px;color:var(--muted);margin-top:28px;border-top:1px solid var(--line);padding-top:18px;display:flex;justify-content:space-between;gap:20px}.footnote p{margin:0;max-width:800px}
+@media(max-width:900px){main{padding:26px 22px}.gallery{grid-template-columns:190px minmax(0,1fr)}.clip-header{padding:20px}.players{padding:16px 20px;grid-template-columns:1fr;gap:12px}.clip-scores div{padding:12px 16px}.diagnosis{margin:0 20px 20px}.stats{gap:10px}.stat{padding:16px}.stat .value{font-size:29px}}
+@media(max-width:650px){main{padding:22px 16px 32px}.topline{gap:10px;margin-bottom:16px}.status{font-size:10px;padding:4px 8px}h1{font-size:30px}.intro{font-size:14px}.stats{grid-template-columns:1fr 1fr}.stat{padding:15px}.stat .value{font-size:29px}.stat .label{font-size:11px}.stat .delta{font-size:10px}.summary{font-size:12px;margin-bottom:24px}.comparison{padding:15px}th,td{padding:9px 5px;font-size:11px}.section-heading{display:block}.gallery{grid-template-columns:1fr;gap:14px}.clip-list{grid-template-columns:1fr 1fr;gap:8px}.clip-button{padding:11px;gap:7px}.clip-button strong{font-size:12px}.clip-button small{font-size:10px}.selection-note{font-size:11px}.clip-title{font-size:21px}.clip-header{padding:18px}.clip-scores div{padding:12px}.clip-scores span{font-size:10px}.clip-scores strong{font-size:18px}.players{padding:16px 18px}.diagnosis{margin:0 18px 18px;padding:14px}.downloads{padding:12px 18px 18px;font-size:11px}.footnote{display:block;font-size:11px}.footnote a{display:inline-block;margin-top:10px}.error-label{font-size:11px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="topline"><span class="eyebrow">TorchPitch / Model results</span><span class="status">Piano transcription · local demo</span></div>
+  <h1>From piano audio to notes.</h1>
+  <p class="intro muted">Listen to the model, compare its notes with the reference, and see what improved with more training data.</p>
+  <p class="run-info" id="run-info"></p>
+</header>
+<section aria-label="Held-out test results">
+  <div class="eyebrow">Held-out test · previous → new</div>
+  <div class="stats" id="stats"></div>
+  <p class="summary" id="scope"></p>
+  <details class="comparison"><summary>Compare all test metrics</summary><table><thead><tr><th scope="col">Metric</th><th scope="col">Previous</th><th scope="col">New</th><th scope="col">Change</th></tr></thead><tbody id="comparison-rows"></tbody></table><p>Note matches require pitch within 50 cents and onset within 50 ms. Including endings also requires the end within 20% of the reference duration or 50 ms, whichever is larger. Scores aggregate note counts across windows.</p></details>
+</section>
+<section style="margin-top:30px" aria-labelledby="examples-title">
+  <div class="section-heading"><div><h2 id="examples-title">Hear the held-out examples</h2><p class="muted">Four eight-second excerpts. Individual clip scores are separate from the aggregate test scores above.</p></div></div>
+  <div class="gallery">
+    <aside><nav class="clip-list" aria-label="Choose a held-out clip" id="clip-list"></nav><p class="selection-note">Textures are chosen from reference MIDI, independently of model scores. The final clip retains the earlier example to show note-ending errors. All four recordings are in the held-out test split.</p></aside>
+    <article class="clip-panel" id="clip-panel" aria-label="Selected clip">
+      <div class="clip-header"><div class="eyebrow" id="clip-category"></div><h2 class="clip-title" id="clip-title" aria-live="polite"></h2><p class="composer" id="clip-composer"></p><p class="description" id="clip-description"></p><div class="clip-meta" id="clip-meta"></div></div>
+      <div class="clip-scores"><div><span>Clip note F1</span><strong id="clip-f1"></strong></div><div><span>Including endings</span><strong id="clip-offset-f1"></strong></div><div><span>Matched / reference</span><strong id="clip-matched"></strong></div></div>
+      <div class="players"><div><label for="original-audio">Original recording</label><audio id="original-audio" controls preload="metadata"></audio></div><div><label for="predicted-audio">Predicted MIDI · simple tones</label><audio id="predicted-audio" controls preload="metadata"></audio></div></div>
+      <div class="roll"><img id="piano-roll" alt="Reference and predicted piano rolls aligned with the audio waveform" width="1680" height="1036"></div>
+      <div class="downloads"><a class="primary" id="prediction-download" download>Download predicted MIDI</a><a id="reference-download" download>Reference MIDI</a><a id="roll-fullsize" target="_blank" rel="noopener">Full-size piano roll ↗</a><a id="clip-report" target="_blank" rel="noopener">Individual report ↗</a></div>
+      <section class="diagnosis" aria-label="Remaining errors"><h3 id="diagnosis-title">Where the model still struggles</h3><p id="diagnosis-summary"></p><p id="diagnosis-tolerance">The bars below isolate the three largest ending errors among notes with matching pitch and onset. The scale covers the full eight-second excerpt.</p><div class="legend"><span>Reference duration</span><span>Predicted duration</span></div><ul class="duration-list" id="duration-list"></ul></section>
+    </article>
+  </div>
+</section>
+<footer class="footnote"><p>Reference notes are clipped at excerpt boundaries. Playback uses simple tone synthesis at fixed velocity; pedal and pitch bends are not reconstructed. This is a piano demo, and the scores cover selected windows rather than a full-recording benchmark.</p><a href="results.json" download>Download results JSON</a></footer>
+</main>
+<noscript><p style="padding:24px">Enable JavaScript to select clips and display the results.</p></noscript>
+<script type="application/json" id="demo-data">__DEMO_DATA__</script>
+<script>
+"use strict";
+const data=JSON.parse(document.getElementById("demo-data").textContent);
+const $=id=>document.getElementById(id);
+const pct=value=>(100*value).toFixed(1)+"%";
+const delta=(now,before)=>{const pp=100*(now-before);return (pp>=0?"+":"")+pp.toFixed(1)+" pp";};
+const metricSpecs=[
+  ["Note F1 · pitch + onset","note_events_no_offset","f1"],
+  ["Precision","note_events_no_offset","precision"],
+  ["Recall","note_events_no_offset","recall"],
+  ["F1 · including endings","note_events_with_offset","f1"]
+];
+$("run-info").textContent=`Expanded model · ${data.training_recordings} training recordings · best checkpoint at epoch ${data.best_epoch} · previous model: ${data.baseline_training_recordings} training recordings`;
+for(const [label,group,key] of metricSpecs){
+  const now=data.current[group][key],before=data.baseline[group][key];
+  const card=document.createElement("div");card.className="stat";
+  const name=document.createElement("div");name.className="label";name.textContent=label;
+  const value=document.createElement("div");value.className="value";value.textContent=pct(now);
+  const change=document.createElement("div");change.className="delta";change.textContent=`${pct(before)} → ${pct(now)} · ${delta(now,before)}`;
+  card.append(name,value,change);$("stats").append(card);
+}
+$("scope").textContent=`${data.current.windows} fixed two-second test windows from ${data.test_recordings} held-out recordings; boundary notes are clipped. Decoder thresholds were tuned on ${data.validation_windows} separate validation windows and frozen for test evaluation. Recall improved most; extra notes and note endings remain weaknesses.`;
+const rows=[...metricSpecs,["Precision · including endings","note_events_with_offset","precision"],["Recall · including endings","note_events_with_offset","recall"],...["note","pitch","onset"].map(head=>[`${head[0].toUpperCase()+head.slice(1)} frame F1`,"frame",head])];
+for(const [label,group,key] of rows){
+  const now=group==="frame"?data.current.frame[key].f1:data.current[group][key];
+  const before=group==="frame"?data.baseline.frame[key].f1:data.baseline[group][key];
+  const row=document.createElement("tr");
+  for(const text of [label,pct(before),pct(now),delta(now,before)]){const cell=document.createElement("td");cell.textContent=text;row.append(cell);}
+  $("comparison-rows").append(row);
+}
+const buttons=new Map();
+for(const [index,clip] of data.clips.entries()){
+  const button=document.createElement("button");button.type="button";button.className="clip-button";button.dataset.clip=clip.id;button.setAttribute("aria-pressed","false");button.setAttribute("aria-controls","clip-panel");
+  const number=document.createElement("span");number.className="number";number.textContent=String(index+1).padStart(2,"0");
+  const text=document.createElement("span"),label=document.createElement("strong"),composer=document.createElement("small");
+  label.textContent=clip.label;composer.textContent=clip.composer;
+  if(clip.id==="endings"){composer.className="error-tag";composer.textContent="Known limitation · "+clip.composer;}
+  text.append(label,composer);button.append(number,text);button.addEventListener("click",()=>selectClip(clip.id));$("clip-list").append(button);buttons.set(clip.id,button);
+}
+function selectClip(id){
+  const clip=data.clips.find(c=>c.id===id)||data.clips[0];
+  for(const [key,button] of buttons)button.setAttribute("aria-pressed",String(key===clip.id));
+  $("clip-panel").dataset.clip=clip.id;
+  $("clip-category").textContent=clip.label+" / test excerpt";
+  $("clip-title").textContent=clip.title;$("clip-composer").textContent=clip.composer;
+  $("clip-description").textContent=clip.description;
+  $("clip-meta").replaceChildren();
+  for(const text of [`${clip.duration.toFixed(0)} seconds · starts at ${clip.start.toFixed(1)} s`,`${clip.onsets_per_second.toFixed(1)} reference attacks / second`,`${clip.metrics.predicted} predicted notes`]){const span=document.createElement("span");span.textContent=text;$("clip-meta").append(span);}
+  $("clip-f1").textContent=pct(clip.metrics.f1);$("clip-offset-f1").textContent=pct(clip.diagnostics.with_offset.f1);$("clip-matched").textContent=`${clip.metrics.matched} / ${clip.metrics.reference}`;
+  for(const [player,asset] of [["original-audio","original.wav"],["predicted-audio","prediction.wav"]]){const audio=$(player);audio.pause();audio.src=clip.assets[asset];audio.load();}
+  $("piano-roll").src=clip.assets["piano_roll.png"];
+  $("piano-roll").alt=`Reference and predicted piano rolls for ${clip.composer}: ${clip.title}`;
+  $("prediction-download").href=clip.assets["prediction.mid"];$("reference-download").href=clip.assets["reference.mid"];$("roll-fullsize").href=clip.assets["piano_roll.png"];$("clip-report").href=clip.assets["index.html"];
+  const d=clip.diagnostics;
+  $("diagnosis-title").textContent=clip.id==="endings"?"Known limitation: note endings":"Where the model still struggles";
+  $("diagnosis-summary").textContent=`${d.onset_matches} notes match pitch and onset; ${d.ending_matches_among_onset_matches} of those also end within tolerance. Unmatched notes: ${d.extra_notes} predicted · ${d.missed_notes} reference.`;
+  $("duration-list").replaceChildren();
+  for(const error of d.duration_examples){
+    const item=document.createElement("li"),label=document.createElement("div");label.className="error-label";
+    const name=document.createElement("strong"),detail=document.createElement("span");name.textContent=`${error.note} · ${error.reference_start.toFixed(2)} s`;detail.textContent=`Ends ${Math.abs(error.end_error_seconds).toFixed(2)} s ${error.end_error_seconds>0?"late":"early"}`;label.append(name,detail);
+    const track=document.createElement("div");track.className="duration-track";track.setAttribute("role","img");track.setAttribute("aria-label",`Reference ${error.reference_start.toFixed(2)} to ${error.reference_end.toFixed(2)} seconds; prediction ${error.predicted_start.toFixed(2)} to ${error.predicted_end.toFixed(2)} seconds`);
+    for(const [start,end,kind] of [[error.reference_start,error.reference_end,"reference"],[error.predicted_start,error.predicted_end,"predicted"]]){const bar=document.createElement("span");bar.className="duration-bar "+kind;bar.style.left=100*start/clip.duration+"%";bar.style.width=100*(end-start)/clip.duration+"%";track.append(bar);}
+    item.append(label,track);$("duration-list").append(item);
+  }
+  $("diagnosis-tolerance").hidden=d.duration_examples.length===0;
+  document.querySelector(".legend").hidden=d.duration_examples.length===0;
+  history.replaceState(null,"","#"+clip.id);
+}
+selectClip(location.hash.slice(1));
+window.addEventListener("hashchange",()=>selectClip(location.hash.slice(1)));
+// Keep comparison listening simple: only one recording plays at a time.
+for(const id of ["original-audio","predicted-audio"])$(id).addEventListener("play",()=>$(id==="original-audio"?"predicted-audio":"original-audio").pause());
+</script>
+</body>
+</html>

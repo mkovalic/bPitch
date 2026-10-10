@@ -1,99 +1,103 @@
+"""Decode fixed-resolution probability grids into MIDI-pitched note events."""
+
+import math
 import numpy as np
-import scipy.signal
+from scipy.signal import find_peaks
+from audio_features import FEATURES
+
 
 class NoteCreator:
-    def __init__(self, threshold_onset=0.5, threshold_note=0.3, tolerance_frames=11, min_duration_ms=120, sample_rate=22050, hop_length=243):
-        """
-        Initialize the NoteCreator with thresholds and other parameters.
-
-        Args:
-            threshold_onset (float): Threshold for peak-picking Yo.
-            threshold_note (float): Threshold for note creation in Yn.
-            tolerance_frames (int): Tolerance for Yn falling below the threshold.
-            min_duration_ms (float): Minimum duration for a note (in milliseconds).
-            sample_rate (int): Audio sample rate.
-            hop_length (int): Hop length used for the model.
-        """
+    def __init__(
+        self,
+        threshold_onset=0.5,
+        threshold_note=0.3,
+        tolerance_frames=11,
+        min_duration_ms=120,
+        sample_rate=FEATURES.sample_rate,
+        hop_length=FEATURES.hop_length,
+        min_midi=FEATURES.min_midi,
+    ):
         self.threshold_onset = threshold_onset
         self.threshold_note = threshold_note
         self.tolerance_frames = tolerance_frames
-        self.min_duration_frames = int((min_duration_ms / 1000) * sample_rate / hop_length)
-        self.sample_rate = sample_rate
-        self.hop_length = hop_length
+        self.min_duration_frames = max(
+            1, math.ceil(min_duration_ms / 1000 * sample_rate / hop_length)
+        )
+        self.frame_seconds = hop_length / sample_rate
+        self.min_midi = min_midi
 
-    def create_notes(self, yo, yn, yp):
-        """
-        Create note events from Yo, Yn, and Yp.
-
-        Args:
-            yo (np.ndarray): Onset posteriorgram (shape: time_steps, frequency_bins).
-            yn (np.ndarray): Note event posteriorgram (shape: time_steps, frequency_bins).
-            yp (np.ndarray): Pitch posteriorgram (shape: time_steps, frequency_bins).
-
-        Returns:
-            list: List of notes as (start_time, end_time, pitch).
-            list: List of multi-pitch estimates as (time, pitch).
-        """
+    def create_notes(self, yo, yn, yp=None):
+        yo, yn = np.asarray(yo), np.asarray(yn)
+        if yo.shape != yn.shape or yo.ndim != 2 or yo.shape[1] != FEATURES.n_notes:
+            raise ValueError("Onset and note grids must both be (time, 88)")
+        if yp is not None and np.asarray(yp).shape != (len(yn), FEATURES.n_pitch_bins):
+            raise ValueError("Pitch grid must be (time, 264)")
+        active = yn >= self.threshold_note
+        consumed = np.zeros_like(active)
         notes = []
-        time_steps, freq_bins = yo.shape
 
-        # Step 1: Peak-picking in Yo
-        onset_candidates = []
-        for f in range(freq_bins):
-            peaks, _ = scipy.signal.find_peaks(yo[:, f], height=self.threshold_onset)
-            onset_candidates.extend([(t, f) for t in peaks])
+        def trace(seed, pitch, direction):
+            last, gaps, position = seed, 0, seed + direction
+            while 0 <= position < len(yn) and not consumed[position, pitch]:
+                if active[position, pitch]:
+                    last, gaps = position, 0
+                else:
+                    gaps += 1
+                    if gaps > self.tolerance_frames:
+                        break
+                position += direction
+            return last
 
-        # Sort onset candidates by time in descending order
-        onset_candidates.sort(reverse=True, key=lambda x: x[0])
+        def emit(first, last, pitch):
+            consumed[first : last + 1, pitch] = True
+            if last - first + 1 >= self.min_duration_frames:
+                notes.append(
+                    (
+                        first * self.frame_seconds,
+                        (last + 1) * self.frame_seconds,
+                        int(pitch + self.min_midi),
+                    )
+                )
 
-        # Step 2: Create notes from Yo
-        for t0, f in onset_candidates:
-            if yn[t0, f] < self.threshold_note:
-                continue
+        candidates = []
+        for pitch in range(yo.shape[1]):
+            # Padding includes real onsets at the first/last frame.
+            peaks, _ = find_peaks(np.pad(yo[:, pitch], 1), height=self.threshold_onset)
+            candidates.extend((int(t - 1), pitch) for t in peaks)
+        for first, pitch in sorted(candidates, reverse=True):
+            if active[first, pitch] and not consumed[first, pitch]:
+                emit(first, trace(first, pitch, 1), pitch)
+        while True:
+            remaining = np.where(active & ~consumed, yn, -1)
+            flat = int(np.argmax(remaining))
+            seed, pitch = np.unravel_index(flat, yn.shape)
+            if remaining[seed, pitch] < self.threshold_note:
+                break
+            emit(trace(seed, pitch, -1), trace(seed, pitch, 1), pitch)
+        multi_pitch = []
+        if yp is not None:
+            for frame, row in enumerate(np.asarray(yp)):
+                peaks, _ = find_peaks(np.pad(row, 1), height=self.threshold_note)
+                multi_pitch.extend(
+                    (frame * self.frame_seconds, self.min_midi + (p - 1) / 3)
+                    for p in peaks
+                )
+        return sorted(notes), multi_pitch
 
-            # Track forward in time through Yn
-            t1 = t0
-            while t1 < time_steps and yn[t1, f] >= self.threshold_note:
-                t1 += 1
 
-            # Ensure the note meets minimum duration
-            if t1 - t0 >= self.min_duration_frames:
-                start_time = t0 * self.hop_length / self.sample_rate
-                end_time = t1 * self.hop_length / self.sample_rate
-                pitch = f
-                notes.append((start_time, end_time, pitch))
+def notes_to_midi(notes, path, duration=None):
+    import pretty_midi
 
-                # Set Yn values to 0 for this note
-                yn[t0:t1, f] = 0
-
-        # Step 3: Additional notes from Yn
-        remaining_candidates = np.argwhere(yn > self.threshold_note)
-        remaining_candidates = sorted(remaining_candidates, key=lambda x: yn[x[0], x[1]], reverse=True)
-
-        for t, f in remaining_candidates:
-            if yn[t, f] < self.threshold_note:
-                continue
-
-            # Track forward and backward in time through Yn
-            t_start, t_end = t, t
-            while t_start > 0 and yn[t_start, f] >= self.threshold_note:
-                t_start -= 1
-            while t_end < time_steps and yn[t_end, f] >= self.threshold_note:
-                t_end += 1
-
-            # Ensure the note meets minimum duration
-            if t_end - t_start >= self.min_duration_frames:
-                start_time = t_start * self.hop_length / self.sample_rate
-                end_time = t_end * self.hop_length / self.sample_rate
-                pitch = f
-                notes.append((start_time, end_time, pitch))
-
-                # Set Yn values to 0 for this note
-                yn[t_start:t_end, f] = 0
-
-        # Step 4: Multi-pitch estimation from Yp
-        pitch_candidates = np.argwhere(yp > self.threshold_note)
-        multi_pitch = [(t * self.hop_length / self.sample_rate, f) for t, f in pitch_candidates]
-
-        return notes, multi_pitch
-
+    midi = pretty_midi.PrettyMIDI()
+    instrument = pretty_midi.Instrument(program=0)
+    for start, end, pitch in notes:
+        end = min(end, duration) if duration is not None else end
+        if end > start:
+            instrument.notes.append(
+                pretty_midi.Note(
+                    velocity=100, pitch=int(pitch), start=float(start), end=float(end)
+                )
+            )
+    midi.instruments.append(instrument)
+    midi.write(str(path))
+    return midi

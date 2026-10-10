@@ -1,0 +1,23 @@
+{
+  "data_dir": "../data/maestro-v3.0.0",
+  "manifest": "../manifests/expanded.json",
+  "holdout_manifest": "../manifests/demo.json",
+  "cache_dir": "../.cache/features-v2",
+  "run_dir": "../runs/expanded",
+  "seed": 42,
+  "tracks": {
+    "train": 200,
+    "validation": 10,
+    "test": 10
+  },
+  "windows_per_track": {
+    "train": 32,
+    "validation": 16,
+    "test": 16
+  },
+  "batch_size": 4,
+  "num_workers": 2,
+  "epochs": 50,
+  "learning_rate": 0.001,
+  "patience": 8
+}

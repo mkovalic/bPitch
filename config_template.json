@@ -1,3 +1,34 @@
 {
-    "data_dir": ".reaplce with/maestro/data/path" 
+  "data_dir": "data/maestro-v3.0.0",
+  "manifest": "manifests/demo.json",
+  "cache_dir": ".cache/features-v2",
+  "run_dir": "runs/demo",
+  "seed": 42,
+  "tracks": {
+    "train": 50,
+    "validation": 10,
+    "test": 10
+  },
+  "windows_per_track": {
+    "train": 32,
+    "validation": 16,
+    "test": 16
+  },
+  "batch_size": 4,
+  "num_workers": 2,
+  "epochs": 50,
+  "learning_rate": 0.001,
+  "patience": 8,
+  "observability": {
+    "enabled": true,
+    "log_every_batches": 25,
+    "validation_windows": 16,
+    "media_every_epochs": 5,
+    "decoder": {
+      "threshold_onset": 0.995,
+      "threshold_note": 0.3,
+      "min_duration_ms": 40,
+      "tolerance_frames": 11
+    }
+  }
 }

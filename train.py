@@ -1,126 +1,305 @@
+"""Train the corrected model with held-out validation and resumable checkpoints."""
+
+import argparse
+from contextlib import nullcontext
 import json
+from pathlib import Path
+import time
+import shutil
 import torch
-import torch.optim as optim
 from torch.utils.data import DataLoader
-from model import BasicPitchModel, total_loss  # Import the model and loss function from model.py
+from audio_features import FEATURES
 from MaestroDataset import MaestroDataset
-import torch.nn.functional as F
+from model import BasicPitchModel, compute_loss_components
+from project_config import (
+    choose_device,
+    load_checkpoint,
+    manifest_digest,
+    read_config,
+    seed_everything,
+)
 
-# Define the training loop
-def train_model(model, dataloader, optimizer, num_epochs, device='mps'):
 
-    print(f"Using device: {device}")
-    model = model.to(device)  # Move model to GPU/CPU
+def make_loader(dataset, config, shuffle=False):
+    return DataLoader(
+        dataset,
+        batch_size=config["batch_size"],
+        shuffle=shuffle,
+        num_workers=config["num_workers"],
+        persistent_workers=config["num_workers"] > 0,
+        generator=torch.Generator().manual_seed(config["seed"]),
+    )
 
-    for epoch in range(num_epochs):
-        model.train()  # Set model to training mode
-        running_loss = 0.0  # For tracking loss
 
-        for batch_idx, (inputs, labels) in enumerate(dataloader):
-            # Move data to GPU/CPU
+def run_epoch(
+    model, loader, device, optimizer=None, max_batches=None, observer=None, start_step=0
+):
+    model.train(optimizer is not None)
+    totals = {key: 0.0 for key in ("total", "onset", "pitch", "note")}
+    examples, batches, wait_seconds, gradient_norm_sum = 0, 0, 0.0, 0.0
+    started = time.perf_counter()
+    previous = started
+    with torch.set_grad_enabled(optimizer is not None):
+        for step, (inputs, labels) in enumerate(loader):
+            ready = time.perf_counter()
+            wait = ready - previous
+            wait_seconds += wait
             inputs = inputs.to(device)
             labels = {k: v.to(device) for k, v in labels.items()}
+            if optimizer:
+                optimizer.zero_grad(set_to_none=True)
+            outputs = model(inputs, return_logits=True)
+            components = compute_loss_components(outputs, labels)
+            loss = sum(components.values())
+            if not torch.isfinite(loss):
+                raise RuntimeError("Non-finite loss; training stopped")
+            if optimizer:
+                loss.backward()
+                gradient_norm = torch.nn.utils.clip_grad_norm_(
+                    model.parameters(), 5.0, error_if_nonfinite=True
+                )
+                optimizer.step()
+                gradient_norm_sum += float(gradient_norm)
+            values = dict(
+                zip(
+                    totals,
+                    torch.stack([loss, *components.values()]).detach().cpu().tolist(),
+                )
+            )
+            for key, value in values.items():
+                totals[key] += value * len(inputs)
+            examples += len(inputs)
+            batches += 1
+            processing_seconds = time.perf_counter() - ready
+            if observer and optimizer:
+                observer.log_batch(
+                    start_step + batches,
+                    batches,
+                    values,
+                    float(gradient_norm),
+                    optimizer.param_groups[0]["lr"],
+                    wait,
+                    processing_seconds,
+                )
+            if optimizer and (step == 0 or (step + 1) % 50 == 0):
+                print(
+                    f"  batch {step + 1}/{len(loader)} loss={values['total']:.5f} elapsed={time.perf_counter() - started:.1f}s",
+                    flush=True,
+                )
+            if max_batches and step + 1 >= max_batches:
+                break
+            previous = time.perf_counter()
+    if not examples:
+        raise RuntimeError("No batches processed")
+    elapsed = time.perf_counter() - started
+    return {
+        "loss": totals["total"] / examples,
+        "loss_components": {
+            key: totals[key] / examples for key in ("onset", "pitch", "note")
+        },
+        "batches": batches,
+        "seconds": elapsed,
+        "loader_wait_seconds": wait_seconds,
+        "examples_per_second": examples / elapsed,
+        "gradient_norm": gradient_norm_sum / batches if optimizer else None,
+    }
 
-            # Extract and resize labels to match model outputs
-            yo_true = F.interpolate(labels['onset'].unsqueeze(1), size=(218, 433), mode='bilinear', align_corners=False).squeeze(1).unsqueeze(1)
-            yn_true = F.interpolate(labels['note'].unsqueeze(1), size=(218, 433), mode='bilinear', align_corners=False).squeeze(1).unsqueeze(1)
-            yp_true = F.interpolate(labels['pitch'].unsqueeze(1), size=(218, 433), mode='bilinear', align_corners=False).squeeze(1).unsqueeze(1)
 
-            # Zero the gradients for the optimizer
-            optimizer.zero_grad()
+def save_checkpoint(
+    path,
+    model,
+    optimizer,
+    epoch,
+    best_loss,
+    config,
+    history,
+    bad_epochs,
+    global_step=None,
+):
+    payload = {
+        "model_version": model.version,
+        "features": FEATURES.to_dict(),
+        "model": {k: v.detach().cpu() for k, v in model.state_dict().items()},
+        "optimizer": optimizer.state_dict(),
+        "epoch": epoch,
+        "best_val_loss": best_loss,
+        "config": config,
+        "manifest_sha256": manifest_digest(config["manifest"]),
+        "manifest": json.loads(Path(config["manifest"]).read_text()),
+        "history": history,
+        "bad_epochs": bad_epochs,
+    }
+    if global_step is not None:
+        payload["global_step"] = global_step
+    temporary = Path(str(path) + ".tmp")
+    torch.save(payload, temporary)
+    temporary.replace(path)
 
-            # Forward pass: compute model predictions
-            yo_pred, yp_pred, yn_pred = model(inputs)
-
-            # Debugging: Ensure shape compatibility
-            if yo_pred.shape != yo_true.shape or yp_pred.shape != yp_true.shape or yn_pred.shape != yn_true.shape:
-                print(f"Shape Mismatch - Yo: {yo_pred.shape} vs {yo_true.shape}, "
-                      f"Yp: {yp_pred.shape} vs {yp_true.shape}, "
-                      f"Yn: {yn_pred.shape} vs {yn_true.shape}")
-                continue
-
-            # Compute loss
-            loss = total_loss(yo_true, yo_pred, yn_true, yn_pred, yp_true, yp_pred)
-
-            # Backward pass: compute gradients
-            loss.backward()
-
-            # Optimization step: update model weights
-            optimizer.step()
-
-            # Track the running loss
-            running_loss += loss.item()
-
-            # Optionally log progress for every batch
-            if batch_idx % 10 == 0:
-                print(f"Epoch [{epoch + 1}/{num_epochs}], Batch [{batch_idx}/{len(dataloader)}], Loss: {loss.item():.4f}")
-
-        # Calculate average loss per epoch
-        avg_loss = running_loss / len(dataloader)
-        print(f"Epoch [{epoch + 1}/{num_epochs}], Average Loss: {avg_loss:.4f}")
-
-        # Optionally, save model checkpoints after each epoch
-        torch.save(model.state_dict(), f"basic_pitch_epoch_{epoch + 1}.pth")
 
 def main():
-    # Hyperparameters
-    batch_size = 4  # Adjust based on your system's capacity
-    num_epochs = 50
-    learning_rate = 0.001
-    with open("config.json", "r") as f:
-        config = json.load(f)
-    data_dir = config.get("data_dir", "./data/maestro")  # Default to ./data/maestro if missing
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", default="config.json")
+    parser.add_argument("--device", default="auto")
+    parser.add_argument("--epochs", type=int)
+    parser.add_argument("--run-dir")
+    parser.add_argument("--resume")
+    parser.add_argument("--max-train-batches", type=int)
+    parser.add_argument("--max-val-batches", type=int)
+    parser.add_argument("--workers", type=int)
+    parser.add_argument(
+        "--no-tensorboard",
+        action="store_true",
+        help="Disable event logging and validation previews",
+    )
+    args = parser.parse_args()
+    config = read_config(args.config)
+    if args.epochs is not None:
+        config["epochs"] = args.epochs
+    if args.run_dir:
+        config["run_dir"] = str(Path(args.run_dir).resolve())
+    elif args.resume:
+        config["run_dir"] = str(Path(args.resume).resolve().parent)
+    if args.workers is not None:
+        config["num_workers"] = args.workers
+    if args.no_tensorboard:
+        config["observability"]["enabled"] = False
+    seed_everything(config["seed"])
+    torch.set_num_threads(4)
+    device = choose_device(args.device)
+    run_dir = Path(config["run_dir"])
+    if (run_dir / "last.pt").exists() and not args.resume:
+        raise FileExistsError(
+            f"{run_dir} already contains a run. Use --resume or a new --run-dir."
+        )
+    train = MaestroDataset(
+        config["data_dir"], config["manifest"], "train", config["cache_dir"]
+    )
+    validation = MaestroDataset(
+        config["data_dir"], config["manifest"], "validation", config["cache_dir"]
+    )
+    train_loader, val_loader = (
+        make_loader(train, config, True),
+        make_loader(validation, config),
+    )
+    model = BasicPitchModel().to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"])
+    first_epoch, best_loss, history, bad_epochs, global_step = 0, float("inf"), [], 0, 0
+    if args.resume:
+        checkpoint = load_checkpoint(args.resume)
+        if checkpoint["manifest_sha256"] != manifest_digest(config["manifest"]):
+            raise ValueError("Resume manifest differs from checkpoint")
+        model.load_state_dict(checkpoint["model"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        first_epoch, best_loss = checkpoint["epoch"] + 1, checkpoint["best_val_loss"]
+        history, bad_epochs = checkpoint["history"], checkpoint["bad_epochs"]
+        global_step = checkpoint.get("global_step", first_epoch * len(train_loader))
+    run_dir.mkdir(parents=True, exist_ok=True)
+    if args.resume and not (run_dir / "best.pt").exists():
+        prior_best = Path(args.resume).resolve().parent / "best.pt"
+        if not prior_best.exists():
+            raise FileNotFoundError(
+                "Resuming into a new directory requires the prior best.pt alongside the checkpoint"
+            )
+        shutil.copy2(prior_best, run_dir / "best.pt")
+    (run_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n")
+    print(
+        f"Device={device}; parameters={sum(p.numel() for p in model.parameters())}; train={len(train)} validation={len(validation)}",
+        flush=True,
+    )
+    observer_context = nullcontext(None)
+    if config["observability"]["enabled"]:
+        from observability import TrainingObserver
 
-    # Initialize dataset and dataloader
-    train_dataset = MaestroDataset(data_dir)  # Replace with your dataset path
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+        observer_context = TrainingObserver(
+            run_dir, config, device, global_step if args.resume else None
+        )
+        print(f"TensorBoard events: {run_dir / 'tensorboard'}", flush=True)
+    with observer_context as observer:
+        for epoch in range(first_epoch, config["epochs"]):
+            seed_everything(config["seed"] + epoch)
+            train_loader.generator.manual_seed(config["seed"] + epoch)
+            print(f"Epoch {epoch + 1}/{config['epochs']}", flush=True)
+            training = run_epoch(
+                model,
+                train_loader,
+                device,
+                optimizer,
+                args.max_train_batches,
+                observer,
+                global_step,
+            )
+            validation_stats = run_epoch(
+                model, val_loader, device, max_batches=args.max_val_batches
+            )
+            global_step += training["batches"]
+            train_loss, val_loss = training["loss"], validation_stats["loss"]
+            improved = val_loss < best_loss - 1e-4
+            if improved:
+                best_loss, bad_epochs = val_loss, 0
+            else:
+                bad_epochs += 1
+            row = {
+                "epoch": epoch + 1,
+                "global_step": global_step,
+                "train_loss": train_loss,
+                "validation_loss": val_loss,
+                "learning_rate": optimizer.param_groups[0]["lr"],
+                "gradient_norm": training["gradient_norm"],
+                "best_validation_loss": best_loss,
+                "bad_epochs": bad_epochs,
+            }
+            for split, stats in (("train", training), ("validation", validation_stats)):
+                for key in (
+                    "loss_components",
+                    "seconds",
+                    "loader_wait_seconds",
+                    "examples_per_second",
+                ):
+                    row[f"{split}_{key}"] = stats[key]
+            if observer:
+                row["validation_preview"] = observer.validation_preview(
+                    model, validation, device, epoch + 1, global_step
+                )
+                observer.log_epoch(row)
+            history.append(row)
+            if improved:
+                save_checkpoint(
+                    run_dir / "best.pt",
+                    model,
+                    optimizer,
+                    epoch,
+                    best_loss,
+                    config,
+                    history,
+                    bad_epochs,
+                    global_step,
+                )
+            save_checkpoint(
+                run_dir / "last.pt",
+                model,
+                optimizer,
+                epoch,
+                best_loss,
+                config,
+                history,
+                bad_epochs,
+                global_step,
+            )
+            (run_dir / "history.json").write_text(json.dumps(history, indent=2) + "\n")
+            print(
+                f"  train={train_loss:.5f} validation={val_loss:.5f} best={best_loss:.5f}",
+                flush=True,
+            )
+            if observer:
+                print(
+                    f"  validation preview ({row['validation_preview']['windows']} windows): note F1={row['validation_preview']['note_events']['f1']:.4f}",
+                    flush=True,
+                )
+            if bad_epochs >= config["patience"]:
+                print("Early stopping: validation loss stopped improving.", flush=True)
+                break
+    print(f"Checkpoint: {run_dir / 'best.pt'}", flush=True)
 
-    # Initialize the model
-    model = BasicPitchModel()
 
-    # Set up optimizer (Adam)
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-
-    """""
-    # Check device
-    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-    print(f"Using device: {device}")
-    model = model.to(device)
-
-    # **Verify the forward pass here**
-    sample_input, sample_labels = next(iter(train_dataloader))
-    sample_input = sample_input.to(device)
-    sample_labels = {k: v.to(device) for k, v in sample_labels.items()}
-    yo_pred, yp_pred, yn_pred = model(sample_input)
-    
-
-
-    # Verify outputs
-    print(f"Yo Shape: {yo_pred.shape}, Yp Shape: {yp_pred.shape}, Yn Shape: {yn_pred.shape}")
-    print(f"Yo Range: Min = {yo_pred.min().item()}, Max = {yo_pred.max().item()}")
-    print(f"Yp Range: Min = {yp_pred.min().item()}, Max = {yp_pred.max().item()}")
-    print(f"Yn Range: Min = {yn_pred.min().item()}, Max = {yn_pred.max().item()}")
-
-    # Check loss computation for a single batch
-    yo_true = sample_labels['onset'].to(device)
-    yn_true = sample_labels['note'].to(device)
-    yp_true = sample_labels['pitch'].to(device)
-
-    yo_true_resized = F.interpolate(yo_true.unsqueeze(1), size=(218, 433), mode='bilinear', align_corners=False).squeeze(1)
-    yn_true_resized = F.interpolate(yn_true.unsqueeze(1), size=(218, 433), mode='bilinear', align_corners=False).squeeze(1)
-    yp_true_resized = F.interpolate(yp_true.unsqueeze(1), size=(218, 433), mode='bilinear', align_corners=False).squeeze(1)
-
-    # Add a channel dimension to the target tensors
-    yo_true_resized = yo_true_resized.unsqueeze(1)
-    yn_true_resized = yn_true_resized.unsqueeze(1)
-    yp_true_resized = yp_true_resized.unsqueeze(1)
-
-    loss = total_loss(yo_true_resized, yo_pred, yn_true_resized, yn_pred, yp_true_resized, yp_pred)
-    print(f"Sample Loss: {loss.item()}")
-    """""
-
-    # Call the training loop
-    train_model(model, train_dataloader, optimizer, num_epochs)
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
