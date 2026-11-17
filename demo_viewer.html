@@ -9,7 +9,7 @@
   :root { color-scheme: light; color: #20231f; background: white; font-family: Georgia, "Times New Roman", serif; }
   * { box-sizing: border-box; }
   body { margin: 0; }
-  main { width: min(100% - 44px, 1120px); margin: clamp(32px, 7vh, 64px) auto; }
+  main { width: min(100% - 44px, 1380px); margin: clamp(32px, 7vh, 64px) auto; }
   h1 { margin: 0; color: #151814; font-size: clamp(44px, 7vw, 66px); line-height: 1.05; font-weight: 500; letter-spacing: -.055em; }
   .intro { margin: 15px 0 29px; font-size: clamp(17px, 2.5vw, 20px); line-height: 1.5; }
   .sources { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; }
@@ -55,8 +55,8 @@
   .midi-heading a { padding-block: 6px; }
   .midi-heading .audition { min-height: 30px; font-size: 12px; }
   .plot { position: relative; }
-  .plot canvas { display: block; width: 100%; height: 52px; }
-  .roll canvas { height: 100px; }
+  .plot canvas { display: block; width: 100%; height: clamp(74px, 10vh, 98px); }
+  .roll canvas { height: clamp(150px, 21vh, 212px); }
   .scrub { position: absolute; inset: 0 5px 0 29px; }
   .roll .scrub { bottom: 17px; }
   .scrub::after { content: ""; position: absolute; left: var(--progress, 0%); top: 0; bottom: 0; border-left: 1.5px solid var(--cursor); pointer-events: none; }
