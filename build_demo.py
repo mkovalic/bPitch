@@ -3,6 +3,7 @@
 import argparse
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import warnings
@@ -10,8 +11,11 @@ import warnings
 import mir_eval
 import numpy as np
 import pretty_midi
+import soundfile as sf
 
 from audio_features import FEATURES
+from demo_visuals import visualization
+from inspection_report import synthesize_midi
 from performance_metrics import counts_to_metrics
 from project_config import load_checkpoint, manifest_digest
 
@@ -276,16 +280,49 @@ def build_demo(checkpoint_path, baseline_path, output):
         "The previously inspected test excerpt is retained to illustrate note-ending errors.",
     }
     (output / "results.json").write_text(json.dumps(data, indent=2) + "\n")
+    render_viewer(output, data)
+    print(f"Results viewer: {output.resolve() / 'index.html'}", flush=True)
+    return data
+
+
+def midi_notes(midi):
+    return [[note.start, note.end, note.pitch]
+            for instrument in midi.instruments if not instrument.is_drum
+            for note in instrument.notes]
+
+
+def render_viewer(output, data):
+    """Render the demo from existing inference artifacts, including older runs."""
+    clips = []
+    for clip in data["clips"]:
+        assets = clip["assets"].copy()
+        wav = output / assets["original.wav"]
+        audio, rate = sf.read(wav)
+        predicted, pred_rate = sf.read(output / assets["prediction.wav"])
+        midi = pretty_midi.PrettyMIDI(str(output / assets["prediction.mid"]))
+        tracks = {
+            "original": visualization(audio, rate, []),
+            "prediction": visualization(predicted, pred_rate, midi_notes(midi)),
+        }
+        if "reference.mid" in assets and (output / assets["reference.mid"]).is_file():
+            ref_path = output / assets["reference.mid"]
+            ref_midi = pretty_midi.PrettyMIDI(str(ref_path))
+            tracks["original"]["events"] = midi_notes(ref_midi)
+            ref_wav = ref_path.with_suffix(".wav")
+            sf.write(ref_wav, synthesize_midi(ref_midi, round(len(audio) / rate * FEATURES.sample_rate)), FEATURES.sample_rate)
+            assets["reference.wav"] = ref_wav.relative_to(output).as_posix()
+        clips.append({**clip, "assets": assets, "tracks": tracks})
+
     template = Path(__file__).with_name("demo_viewer.html").read_text()
     payload = (
-        json.dumps(data)
+        json.dumps({"clips": clips})
         .replace("<", "\\u003c")
         .replace(">", "\\u003e")
         .replace("&", "\\u0026")
     )
     (output / "index.html").write_text(template.replace("__DEMO_DATA__", payload))
-    print(f"Results viewer: {output.resolve() / 'index.html'}", flush=True)
-    return data
+    for asset in ("experiment.html", "timeline.js"):
+        shutil.copyfile(Path(__file__).with_name(asset), output / asset)
 
 
 def main():

@@ -61,6 +61,13 @@ def predict_audio(model, audio, device, batch_size=4):
     return {k: v / weights[:, None] for k, v in sums.items()}
 
 
+def transcribe_samples(model, decoder, audio, device, batch_size):
+    outputs = predict_audio(model, audio, device, batch_size)
+    predicted, _ = decoder.create_notes(outputs["onset"], outputs["note"])
+    end = len(audio) / C.sample_rate
+    return [(s, min(e, end), p) for s, e, p in predicted if s < end]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", default="runs/demo/best.pt")
@@ -101,18 +108,14 @@ def main():
     audio, _ = librosa.load(
         audio_path, sr=C.sample_rate, offset=offset, duration=duration
     )
-    outputs = predict_audio(model, audio, device, config["batch_size"])
     decoder_file = Path(args.checkpoint).resolve().parent / "decoder.json"
     thresholds = (
         json.loads(decoder_file.read_text())["thresholds"]
         if decoder_file.exists()
         else {}
     )
-    predicted, _ = NoteCreator(**thresholds).create_notes(
-        outputs["onset"], outputs["note"]
-    )
+    predicted = transcribe_samples(model, NoteCreator(**thresholds), audio, device, config["batch_size"])
     end = len(audio) / C.sample_rate
-    predicted = [(s, min(e, end), p) for s, e, p in predicted if s < end]
     reference = None
     metrics = None
     if reference_path:

@@ -28,6 +28,16 @@ def wav_url(audio):
     return "data:audio/wav;base64," + base64.b64encode(buffer.getvalue()).decode()
 
 
+def synthesize_midi(midi, sample_count):
+    synthesized = midi.synthesize(fs=FEATURES.sample_rate)
+    synthesized = np.pad(synthesized, (0, max(0, sample_count - len(synthesized))))[
+        : sample_count
+    ]
+    if len(synthesized) and np.max(np.abs(synthesized)) > 0:
+        synthesized = 0.8 * synthesized / np.max(np.abs(synthesized))
+    return synthesized
+
+
 def create_report(
     output_dir,
     audio,
@@ -40,12 +50,7 @@ def create_report(
     output_dir.mkdir(parents=True, exist_ok=True)
     duration = len(audio) / FEATURES.sample_rate
     midi = notes_to_midi(predicted, output_dir / "prediction.mid", duration)
-    synthesized = midi.synthesize(fs=FEATURES.sample_rate)
-    synthesized = np.pad(synthesized, (0, max(0, len(audio) - len(synthesized))))[
-        : len(audio)
-    ]
-    if len(synthesized) and np.max(np.abs(synthesized)) > 0:
-        synthesized = 0.8 * synthesized / np.max(np.abs(synthesized))
+    synthesized = synthesize_midi(midi, len(audio))
     sf.write(output_dir / "original.wav", audio, FEATURES.sample_rate)
     sf.write(output_dir / "prediction.wav", synthesized, FEATURES.sample_rate)
     rolls = [("Predicted notes", predicted, "#137c66")]

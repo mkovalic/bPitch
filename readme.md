@@ -4,7 +4,7 @@ A PyTorch piano adaptation of Spotify’s [Basic Pitch paper](https://arxiv.org/
 
 The corrected version-2 pipeline uses a shared audio/label time grid, manifest-based dataset splits, cached features, validation-based checkpoints, note-event evaluation, and MIDI export. Legacy checkpoints such as `basic_pitch_epoch_1.pth` use a different architecture and training targets, so version 2 requires a fresh training run.
 
-The expanded run reaches **68.81% note F1** on 160 fixed two-second held-out windows, compared with **62.09%** for the initial corrected run. Including note endings gives **31.57% F1**. The results viewer compares both runs and provides four selectable audio/MIDI examples with duration-error diagnostics.
+The expanded run reaches **68.81% note F1** on 160 fixed two-second held-out windows, compared with **62.09%** for the initial corrected run. Including note endings gives **31.57% F1**. The piano demo plays four examples and transcribes short WAV recordings with the expanded checkpoint.
 
 ## Setup
 
@@ -163,20 +163,17 @@ ml_env/bin/python -m http.server 8765 --bind 127.0.0.1 --directory runs
 
 Then visit `http://127.0.0.1:8765/demo/inspection/`.
 
-## Results viewer
+## Piano to MIDI demo
 
-Build the expanded model's results viewer after calibration and test evaluation:
+Start the local inference demo from the project directory:
 
 ```sh
-ml_env/bin/python build_demo.py
-ml_env/bin/python -m http.server 8765 --bind 127.0.0.1 --directory runs/expanded/viewer
+ml_env/bin/python serve_demo.py
 ```
 
-Visit `http://127.0.0.1:8765/`. If an older inspection server is using port 8765, stop that server first or choose another port.
+Open <http://127.0.0.1:8766/>. Choose one of four held-out examples or open a mono or stereo piano WAV (up to 60 seconds and 32 MB). Compare the recording with the synthesized notes and download the predicted MIDI. Uploaded audio is processed on your computer.
 
-The viewer includes a clip selector, original and predicted audio, reference/predicted piano rolls, MIDI downloads, and the previous-versus-expanded test metrics. Four eight-second excerpts illustrate sparse playing, chords, fast playing, and note-ending errors. Texture selection uses reference MIDI only and chooses distinct held-out recordings; the final clip preserves the earlier Rachmaninoff example as a known limitation. The builder verifies that both runs use identical validation/test windows and complete test metrics, then uses the expanded checkpoint's frozen validation decoder.
-
-Clip scores describe eight-second overlapping-window inference and are displayed separately from the aggregate 160 two-second test-window scores. Duration-error bars show the largest ending errors among pitch/onset-matched notes, using the same tolerances as evaluation. `runs/expanded/viewer/results.json` stores the comparison, selection details, clip scores, and diagnostics. The generated viewer runs locally without a JavaScript build step or extra dependencies.
+The generated `runs/expanded/viewer/index.html` also plays the examples directly from disk. To regenerate them after training and calibration, run `ml_env/bin/python build_demo.py`. The experiment metrics and per-clip duration diagnostics are in `runs/expanded/viewer/results.json`.
 
 The expanded run stopped after 28 epochs and selected epoch 20. Test note precision/recall/F1 are **59.57% / 81.46% / 68.81%**, with **31.57% F1** including note endings. The baseline note F1 was **62.09%** on the same windows.
 

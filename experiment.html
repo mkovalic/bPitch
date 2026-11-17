@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>When does a piano note end? · TorchPitch</title>
+<style>
+  :root { color: #20231f; background: white; font-family: Georgia, "Times New Roman", serif; }
+  body { margin: 0; }
+  main { width: min(100% - 44px, 620px); margin: clamp(38px, 9vh, 84px) auto; }
+  nav { margin-bottom: 40px; }
+  h1 { color: #151814; font-size: clamp(40px, 6vw, 59px); font-weight: 500; line-height: 1.05; letter-spacing: -.045em; margin: 0 0 26px; }
+  p { font-size: clamp(17px, 2.4vw, 20px); line-height: 1.6; margin: 0 0 1em; }
+  a { color: #315632; text-underline-offset: 4px; }
+  footer { margin-top: 30px; padding-top: 18px; border-top: 1px solid #d9dcd7; }
+</style>
+</head>
+<body><main>
+<nav><a href="index.html">← Piano to MIDI</a></nav>
+<article>
+<h1>When does a piano note end?</h1>
+<p>About two and a half seconds into the Rachmaninoff example, the pianist plays a C above middle C. TorchPitch finds the right key and starts it within 32 milliseconds of the reference. Then it lets go. The MIDI from the performance holds that C for about eight tenths of a second. The model gives it less than two tenths.</p>
+<p>To see what a small model could learn from piano alone, I adapted Spotify’s Basic Pitch architecture and trained it on MAESTRO, a collection of piano recordings paired with the MIDI captured during each performance. I trained once on 50 recordings, then again on 200. I tested both runs on the same 160 two-second excerpts from ten recordings held out of training.</p>
+<p>The larger run picked up 81% of the reference notes, up from 66%. It still added extra notes. Counting both misses and extras, its F1 score for pitch and onset rose from 62% to 69%. Requiring the endings to match as well brought that score down to 32%.</p>
+<p>Try the passage twice. Listen to the original first, then play the transcription and follow the bars in the piano roll. Each bar starts where the model hears a key strike. Its length is the model’s guess about how long to hold it.</p>
+</article>
+<footer><a href="index.html#endings">Listen to the Rachmaninoff excerpt →</a></footer>
+</main></body></html>
